@@ -83,6 +83,10 @@ const HebrewStoryGenerator = () => {
   const [story, setStory] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [storyTitle, setStoryTitle] = useState('');
+  const [storyImages, setStoryImages] = useState([]);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [seriesDetected, setSeriesDetected] = useState(null);
+  const [scenes, setScenes] = useState([]);
 
   const ageOptions = [
     { value: '2-4', label: '2-4 שנים - גיל הזהב' },
@@ -128,9 +132,14 @@ const HebrewStoryGenerator = () => {
     }
 
     setIsGenerating(true);
+    setImageLoading(true);
+    setSeriesDetected(null);
+    setScenes([]);
+    setStoryImages([]);
     
     try {
-      const response = await fetch('/api/generate-story', {
+      // יצירת הסיפור עם זיהוי סדרות
+      const storyResponse = await fetch('/api/generate-story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,16 +147,62 @@ const HebrewStoryGenerator = () => {
         body: JSON.stringify(formData)
       });
 
-      if (!response.ok) {
+      if (!storyResponse.ok) {
         throw new Error('Failed to generate story');
       }
 
-      const data = await response.json();
-      setStoryTitle(data.title);
-      setStory(data.story);
+      const storyData = await storyResponse.json();
+      setStoryTitle(storyData.title);
+      setStory(storyData.story);
+      setSeriesDetected(storyData.seriesDetected);
+      setScenes(storyData.scenes || []);
+
+      console.log('Story generated:', {
+        title: storyData.title,
+        seriesDetected: storyData.seriesDetected,
+        scenesCount: storyData.scenes ? storyData.scenes.length : 0
+      });
+
+      // יצירת תמונות מותאמות לסצנות
+      try {
+        const imageResponse = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: storyData.title,
+            style: formData.style,
+            interests: formData.interests,
+            series: formData.series,
+            age: formData.age,
+            scenes: storyData.scenes,
+            seriesInfo: storyData.seriesInfo
+          })
+        });
+
+        if (imageResponse.ok) {
+          const imageData = await imageResponse.json();
+          setStoryImages(imageData.images || []);
+          
+          console.log('Images generated:', {
+            total: imageData.totalImages,
+            successful: imageData.successfulImages
+          });
+        } else {
+          console.log('Image generation failed, using fallback');
+          setStoryImages([]);
+        }
+      } catch (imageError) {
+        console.log('Image generation failed, continuing without images:', imageError);
+        setStoryImages([]);
+      }
+      
+      setImageLoading(false);
     } catch (error) {
       console.error('Error generating story:', error);
       alert('מצטער, הייתה בעיה ביצירת הסיפור. אנא נסה שוב 🌟');
+      setImageLoading(false);
     }
     
     setIsGenerating(false);
@@ -168,6 +223,88 @@ const HebrewStoryGenerator = () => {
     });
     setStory('');
     setStoryTitle('');
+    setStoryImages([]);
+    setImageLoading(false);
+    setSeriesDetected(null);
+    setScenes([]);
+  };
+
+  // פונקציה לקביעת נושא האיור בהתאם לפרמטרים
+  const getIllustrationTheme = () => {
+    const interests = formData.interests?.toLowerCase() || '';
+    const style = formData.style || '';
+    
+    if (interests.includes('דינוזאור') || interests.includes('dinosaur')) return 'dinosaur';
+    if (interests.includes('נסיכ') || interests.includes('princess')) return 'princess';
+    if (interests.includes('חלל') || interests.includes('space')) return 'space';
+    if (interests.includes('בעלי חיים') || interests.includes('animal')) return 'animals';
+    if (style === 'magical') return 'magical';
+    if (style === 'adventure') return 'adventure';
+    if (style === 'friendship') return 'friendship';
+    
+    return 'general';
+  };
+
+  // פונקציה ליצירת איור CSS מותאם
+  const createCSSIllustration = () => {
+    const theme = getIllustrationTheme();
+    
+    switch (theme) {
+      case 'dinosaur':
+        return (
+          <div className="dinosaur-scene">
+            <div className="sun"></div>
+            <div className="mountain"></div>
+            <div className="dinosaur"></div>
+            <div className="tree"></div>
+          </div>
+        );
+      
+      case 'princess':
+        return (
+          <div className="princess-scene">
+            <div className="castle"></div>
+            <div className="princess"></div>
+            <div className="stars-bg"></div>
+          </div>
+        );
+      
+      case 'space':
+        return (
+          <div className="space-scene">
+            <div className="rocket"></div>
+            <div className="planet"></div>
+            <div className="stars-space"></div>
+          </div>
+        );
+      
+      case 'animals':
+        return (
+          <div className="animals-scene">
+            <div className="forest-bg"></div>
+            <div className="rabbit"></div>
+            <div className="bird"></div>
+          </div>
+        );
+      
+      case 'magical':
+        return (
+          <div className="magical-scene">
+            <div className="rainbow"></div>
+            <div className="unicorn"></div>
+            <div className="sparkles-bg"></div>
+          </div>
+        );
+      
+      default:
+        return (
+          <div className="general-scene">
+            <div className="house"></div>
+            <div className="child"></div>
+            <div className="garden"></div>
+          </div>
+        );
+    }
   };
 
   return (
@@ -355,6 +492,16 @@ const HebrewStoryGenerator = () => {
                   <h2 className="story-title">
                     {storyTitle}
                   </h2>
+                  
+                  {/* הצגת מידע על סדרה שזוהתה */}
+                  {seriesDetected && (
+                    <div className="series-detected">
+                      <span className="series-badge">
+                        ✨ סיפור בסגנון: {seriesDetected}
+                      </span>
+                    </div>
+                  )}
+                  
                   <div className="story-decorative-line"></div>
                   <div className="story-stars">
                     <AnimatedStar delay={0} />
@@ -362,12 +509,65 @@ const HebrewStoryGenerator = () => {
                     <AnimatedStar delay={1} />
                   </div>
                 </div>
+
+                {/* גלריית תמונות מתקדמת */}
+                <div className="story-images-gallery">
+                  {imageLoading ? (
+                    <div className="images-loading">
+                      <div className="images-placeholder">
+                        <MagicWand />
+                        <span>יוצר איורים מקסימים לסיפור...</span>
+                        <div className="loading-progress">
+                          <div className="progress-bar"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : storyImages && storyImages.length > 0 ? (
+                    <div className="generated-images-grid">
+                      {storyImages.map((imageData, index) => (
+                        <div key={index} className="story-image-item">
+                          {imageData.imageUrl ? (
+                            <div className="image-container">
+                              <img 
+                                src={imageData.imageUrl} 
+                                alt={`איור ${imageData.sceneNumber} לסיפור: ${storyTitle}`}
+                                className="story-image"
+                              />
+                              <div className="image-overlay">
+                                <span className="scene-number">סצנה {imageData.sceneNumber}</span>
+                              </div>
+                            </div>
+                          ) : imageData.fallback ? (
+                            <div className="fallback-image">
+                              <div className={`css-illustration ${getIllustrationTheme()}`}>
+                                {createCSSIllustration()}
+                              </div>
+                              <div className="fallback-overlay">
+                                <span className="scene-number">סצנה {imageData.sceneNumber}</span>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="fallback-illustration-main">
+                      <div className={`css-illustration main ${getIllustrationTheme()}`}>
+                        {createCSSIllustration()}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 
                 <div className="story-content">
-                  {story.split('\n').map((paragraph, index) => (
-                    <p key={index} className="story-paragraph">
-                      {paragraph}
-                    </p>
+                  {story.split('\n\n').map((section, index) => (
+                    <div key={index} className="story-section">
+                      {section.split('\n').map((paragraph, pIndex) => (
+                        <p key={pIndex} className="story-paragraph">
+                          {paragraph}
+                        </p>
+                      ))}
+                    </div>
                   ))}
                 </div>
                 
@@ -376,6 +576,20 @@ const HebrewStoryGenerator = () => {
                     <AnimatedHeart />
                     <span>סוף טוב לסיפור יפה</span>
                     <AnimatedHeart />
+                  </div>
+                  
+                  {/* מידע נוסף על הסיפור */}
+                  <div className="story-info">
+                    {seriesDetected && (
+                      <div className="series-info">
+                        📚 סיפור בהשראת סדרת {seriesDetected}
+                      </div>
+                    )}
+                    {storyImages && storyImages.length > 0 && (
+                      <div className="images-info">
+                        🎨 {storyImages.filter(img => img.imageUrl).length} איורים מותאמים אישית
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -651,6 +865,576 @@ const HebrewStoryGenerator = () => {
             display: flex;
             justify-content: center;
             gap: 1rem;
+          }
+
+          .series-detected {
+            margin: 1rem 0;
+            text-align: center;
+          }
+
+          .series-badge {
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: inline-block;
+            animation: pulse-gentle 2s ease-in-out infinite;
+          }
+
+          .story-images-gallery {
+            margin: 2rem 0;
+          }
+
+          .images-loading {
+            padding: 3rem 2rem;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            text-align: center;
+          }
+
+          .images-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            color: #8b5cf6;
+            font-weight: 600;
+          }
+
+          .loading-progress {
+            width: 200px;
+            height: 6px;
+            background: rgba(139, 92, 246, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+          }
+
+          .progress-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #8b5cf6, #ec4899);
+            border-radius: 3px;
+            animation: loading-progress 3s ease-in-out infinite;
+          }
+
+          @keyframes loading-progress {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(0%); }
+            100% { transform: translateX(100%); }
+          }
+
+          .generated-images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+          }
+
+          .story-image-item {
+            position: relative;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease;
+          }
+
+          .story-image-item:hover {
+            transform: translateY(-5px);
+          }
+
+          .image-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            overflow: hidden;
+          }
+
+          .story-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+          }
+
+          .story-image:hover {
+            transform: scale(1.05);
+          }
+
+          .image-overlay, .fallback-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+            padding: 1rem;
+            color: white;
+            text-align: center;
+          }
+
+          .scene-number {
+            font-weight: 600;
+            font-size: 0.875rem;
+          }
+
+          .fallback-image {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 1rem;
+            overflow: hidden;
+          }
+
+          .fallback-illustration-main {
+            margin-bottom: 2rem;
+            text-align: center;
+          }
+
+          .css-illustration.main {
+            width: 400px;
+            height: 250px;
+            margin: 0 auto;
+          }
+
+          .story-section {
+            margin-bottom: 2rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+          }
+
+          .story-section:last-child {
+            border-bottom: none;
+          }
+
+          .story-info {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(139, 92, 246, 0.2);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .series-info, .images-info {
+            color: #6b21a8;
+            font-weight: 500;
+            font-size: 0.875rem;
+          }
+
+          /* התאמה למובייל */
+          @media (max-width: 768px) {
+            .generated-images-grid {
+              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+              gap: 1rem;
+            }
+            
+            .css-illustration.main {
+              width: 300px;
+              height: 200px;
+            }
+            
+            .story-info {
+              flex-direction: column;
+              text-align: center;
+            }
+          }
+
+          /* Dinosaur Scene */
+          .dinosaur-scene {
+            background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 100%);
+            width: 100%;
+            height: 100%;
+          }
+
+          .dinosaur-scene .sun {
+            width: 40px;
+            height: 40px;
+            background: #FFD700;
+            border-radius: 50%;
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            animation: pulse-gentle 3s ease-in-out infinite;
+          }
+
+          .dinosaur-scene .mountain {
+            width: 0;
+            height: 0;
+            border-left: 60px solid transparent;
+            border-right: 60px solid transparent;
+            border-bottom: 80px solid #8B7355;
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+          }
+
+          .dinosaur-scene .dinosaur {
+            width: 80px;
+            height: 60px;
+            background: #32CD32;
+            border-radius: 20px;
+            position: absolute;
+            bottom: 30px;
+            right: 80px;
+            animation: float 4s ease-in-out infinite;
+          }
+
+          .dinosaur-scene .dinosaur::before {
+            content: '';
+            width: 30px;
+            height: 40px;
+            background: #32CD32;
+            border-radius: 15px;
+            position: absolute;
+            top: -25px;
+            left: 10px;
+          }
+
+          .dinosaur-scene .tree {
+            width: 20px;
+            height: 40px;
+            background: #8B4513;
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+          }
+
+          .dinosaur-scene .tree::before {
+            content: '';
+            width: 40px;
+            height: 40px;
+            background: #228B22;
+            border-radius: 50%;
+            position: absolute;
+            top: -30px;
+            left: -10px;
+          }
+
+          /* Princess Scene */
+          .princess-scene {
+            background: linear-gradient(to bottom, #FFB6C1 0%, #DDA0DD 100%);
+            width: 100%;
+            height: 100%;
+          }
+
+          .princess-scene .castle {
+            width: 100px;
+            height: 80px;
+            background: #D3D3D3;
+            position: absolute;
+            bottom: 30px;
+            left: 50px;
+            border-radius: 10px 10px 0 0;
+          }
+
+          .princess-scene .castle::before {
+            content: '';
+            width: 30px;
+            height: 50px;
+            background: #D3D3D3;
+            position: absolute;
+            top: -30px;
+            left: 35px;
+            border-radius: 15px 15px 0 0;
+          }
+
+          .princess-scene .castle::after {
+            content: '🏰';
+            position: absolute;
+            top: -40px;
+            left: 40px;
+            font-size: 20px;
+          }
+
+          .princess-scene .princess {
+            width: 40px;
+            height: 60px;
+            background: #FFB6C1;
+            border-radius: 20px;
+            position: absolute;
+            bottom: 30px;
+            right: 100px;
+            animation: float 3s ease-in-out infinite;
+          }
+
+          .princess-scene .princess::before {
+            content: '👑';
+            position: absolute;
+            top: -15px;
+            left: 10px;
+            font-size: 20px;
+          }
+
+          .princess-scene .stars-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+          }
+
+          .princess-scene .stars-bg::before,
+          .princess-scene .stars-bg::after {
+            content: '✨';
+            position: absolute;
+            font-size: 16px;
+            animation: animate-twinkle 2s ease-in-out infinite;
+          }
+
+          .princess-scene .stars-bg::before {
+            top: 30px;
+            left: 30px;
+          }
+
+          .princess-scene .stars-bg::after {
+            top: 20px;
+            right: 40px;
+            animation-delay: 1s;
+          }
+
+          /* Space Scene */
+          .space-scene {
+            background: linear-gradient(to bottom, #000428 0%, #004e92 100%);
+            width: 100%;
+            height: 100%;
+          }
+
+          .space-scene .rocket {
+            width: 40px;
+            height: 80px;
+            background: #C0C0C0;
+            border-radius: 20px 20px 0 0;
+            position: absolute;
+            bottom: 40px;
+            left: 100px;
+            animation: float 4s ease-in-out infinite;
+          }
+
+          .space-scene .rocket::before {
+            content: '🚀';
+            position: absolute;
+            top: 10px;
+            left: 8px;
+            font-size: 24px;
+          }
+
+          .space-scene .planet {
+            width: 60px;
+            height: 60px;
+            background: #FFA500;
+            border-radius: 50%;
+            position: absolute;
+            top: 30px;
+            right: 50px;
+            animation: pulse-gentle 5s ease-in-out infinite;
+          }
+
+          .space-scene .stars-space::before,
+          .space-scene .stars-space::after {
+            content: '⭐';
+            position: absolute;
+            font-size: 12px;
+            color: white;
+            animation: animate-twinkle 3s ease-in-out infinite;
+          }
+
+          .space-scene .stars-space::before {
+            top: 50px;
+            left: 50px;
+          }
+
+          .space-scene .stars-space::after {
+            top: 80px;
+            right: 100px;
+            animation-delay: 1.5s;
+          }
+
+          /* Animals Scene */
+          .animals-scene {
+            background: linear-gradient(to bottom, #87CEEB 0%, #90EE90 100%);
+            width: 100%;
+            height: 100%;
+          }
+
+          .animals-scene .forest-bg {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: #228B22;
+          }
+
+          .animals-scene .rabbit {
+            width: 30px;
+            height: 40px;
+            background: white;
+            border-radius: 15px;
+            position: absolute;
+            bottom: 30px;
+            left: 80px;
+            animation: float 2s ease-in-out infinite;
+          }
+
+          .animals-scene .rabbit::before {
+            content: '🐰';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 20px;
+          }
+
+          .animals-scene .bird {
+            position: absolute;
+            top: 40px;
+            right: 60px;
+            font-size: 24px;
+            animation: float 3s ease-in-out infinite;
+          }
+
+          .animals-scene .bird::before {
+            content: '🐦';
+          }
+
+          /* Magical Scene */
+          .magical-scene {
+            background: linear-gradient(to bottom, #FFB6C1 0%, #E6E6FA 50%, #98FB98 100%);
+            width: 100%;
+            height: 100%;
+          }
+
+          .magical-scene .rainbow {
+            width: 150px;
+            height: 75px;
+            border: 10px solid transparent;
+            border-radius: 150px 150px 0 0;
+            border-top: 8px solid #FF0000;
+            border-left: 8px solid #FF7F00;
+            border-right: 8px solid #FFFF00;
+            position: absolute;
+            top: 30px;
+            left: 75px;
+          }
+
+          .magical-scene .rainbow::before {
+            content: '';
+            position: absolute;
+            top: -16px;
+            left: -16px;
+            width: 150px;
+            height: 75px;
+            border-radius: 150px 150px 0 0;
+            border-top: 4px solid #00FF00;
+            border-left: 4px solid #0000FF;
+            border-right: 4px solid #8B00FF;
+          }
+
+          .magical-scene .unicorn {
+            position: absolute;
+            bottom: 40px;
+            right: 80px;
+            font-size: 40px;
+            animation: float 4s ease-in-out infinite;
+          }
+
+          .magical-scene .unicorn::before {
+            content: '🦄';
+          }
+
+          .magical-scene .sparkles-bg::before,
+          .magical-scene .sparkles-bg::after {
+            content: '✨';
+            position: absolute;
+            font-size: 20px;
+            animation: animate-sparkle 2s ease-in-out infinite;
+          }
+
+          .magical-scene .sparkles-bg::before {
+            top: 60px;
+            left: 40px;
+          }
+
+          .magical-scene .sparkles-bg::after {
+            top: 100px;
+            right: 40px;
+            animation-delay: 1s;
+          }
+
+          /* General Scene */
+          .general-scene {
+            background: linear-gradient(to bottom, #87CEEB 0%, #90EE90 100%);
+            width: 100%;
+            height: 100%;
+          }
+
+          .general-scene .house {
+            width: 80px;
+            height: 60px;
+            background: #DEB887;
+            position: absolute;
+            bottom: 30px;
+            left: 60px;
+          }
+
+          .general-scene .house::before {
+            content: '';
+            width: 0;
+            height: 0;
+            border-left: 40px solid transparent;
+            border-right: 40px solid transparent;
+            border-bottom: 30px solid #8B4513;
+            position: absolute;
+            top: -30px;
+            left: 0;
+          }
+
+          .general-scene .house::after {
+            content: '🏠';
+            position: absolute;
+            top: 10px;
+            left: 25px;
+            font-size: 30px;
+          }
+
+          .general-scene .child {
+            position: absolute;
+            bottom: 30px;
+            right: 100px;
+            font-size: 40px;
+            animation: float 3s ease-in-out infinite;
+          }
+
+          .general-scene .child::before {
+            content: '👶';
+          }
+
+          .general-scene .garden {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: #32CD32;
+          }
+
+          .general-scene .garden::before,
+          .general-scene .garden::after {
+            content: '🌸';
+            position: absolute;
+            font-size: 16px;
+          }
+
+          .general-scene .garden::before {
+            bottom: 5px;
+            left: 20px;
+          }
+
+          .general-scene .garden::after {
+            bottom: 5px;
+            right: 20px;
           }
 
           .story-content {
