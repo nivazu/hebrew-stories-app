@@ -1,7 +1,7 @@
 {
   "name": "hebrew-stories-app",
   "version": "1.0.0",
-  "description": "מחולל סיפורי ילדים בעברית",
+  "description": "מחולל סיפורי ילדים בעברית - הסטנדרט הזהב",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
@@ -13,8 +13,7 @@
     "next": "^14.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "openai": "^4.20.0",
-    "lucide-react": "^0.263.1"
+    "openai": "^4.20.0"
   },
   "devDependencies": {
     "eslint": "^8.0.0",
@@ -24,9 +23,11 @@
     "hebrew",
     "stories",
     "children",
+    "openai",
     "ai",
-    "nextjs"
+    "nextjs",
+    "bedtime-stories"
   ],
-  "author": "Your Name",
+  "author": "Hebrew Stories Generator",
   "license": "MIT"
 }
