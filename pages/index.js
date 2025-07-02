@@ -87,6 +87,7 @@ const HebrewStoryGenerator = () => {
   const [imageLoading, setImageLoading] = useState(false);
   const [seriesDetected, setSeriesDetected] = useState(null);
   const [scenes, setScenes] = useState([]);
+  const [visualStyle, setVisualStyle] = useState('');
 
   const ageOptions = [
     { value: '2-4', label: '2-4 שנים - גיל הזהב' },
@@ -134,6 +135,7 @@ const HebrewStoryGenerator = () => {
     setIsGenerating(true);
     setImageLoading(true);
     setSeriesDetected(null);
+    setVisualStyle('');
     setScenes([]);
     setStoryImages([]);
     
@@ -156,6 +158,7 @@ const HebrewStoryGenerator = () => {
       setStory(storyData.story);
       setSeriesDetected(storyData.seriesDetected);
       setScenes(storyData.scenes || []);
+      setVisualStyle(storyData.visualStyle || '');
 
       console.log('Story generated:', {
         title: storyData.title,
@@ -177,7 +180,7 @@ const HebrewStoryGenerator = () => {
             series: formData.series,
             age: formData.age,
             scenes: storyData.scenes,
-            seriesInfo: storyData.seriesInfo
+            visualStyle: storyData.visualStyle
           })
         });
 
@@ -229,7 +232,7 @@ const HebrewStoryGenerator = () => {
     setScenes([]);
   };
 
-  // פונקציה לקביעת נושא האיור בהתאם לפרמטרים
+  // פונקציה פשוטה לגיבוי CSS כשאין תמונות AI
   const getIllustrationTheme = () => {
     const interests = formData.interests?.toLowerCase() || '';
     const style = formData.style || '';
@@ -245,66 +248,24 @@ const HebrewStoryGenerator = () => {
     return 'general';
   };
 
-  // פונקציה ליצירת איור CSS מותאם
+  // פונקציה פשוטה ליצירת איור CSS גיבוי
   const createCSSIllustration = () => {
     const theme = getIllustrationTheme();
     
-    switch (theme) {
-      case 'dinosaur':
-        return (
-          <div className="dinosaur-scene">
-            <div className="sun"></div>
-            <div className="mountain"></div>
-            <div className="dinosaur"></div>
-            <div className="tree"></div>
-          </div>
-        );
-      
-      case 'princess':
-        return (
-          <div className="princess-scene">
-            <div className="castle"></div>
-            <div className="princess"></div>
-            <div className="stars-bg"></div>
-          </div>
-        );
-      
-      case 'space':
-        return (
-          <div className="space-scene">
-            <div className="rocket"></div>
-            <div className="planet"></div>
-            <div className="stars-space"></div>
-          </div>
-        );
-      
-      case 'animals':
-        return (
-          <div className="animals-scene">
-            <div className="forest-bg"></div>
-            <div className="rabbit"></div>
-            <div className="bird"></div>
-          </div>
-        );
-      
-      case 'magical':
-        return (
-          <div className="magical-scene">
-            <div className="rainbow"></div>
-            <div className="unicorn"></div>
-            <div className="sparkles-bg"></div>
-          </div>
-        );
-      
-      default:
-        return (
-          <div className="general-scene">
-            <div className="house"></div>
-            <div className="child"></div>
-            <div className="garden"></div>
-          </div>
-        );
-    }
+    return (
+      <div className={`simple-illustration ${theme}`}>
+        <div className="illustration-content">
+          {theme === 'dinosaur' && <span className="illustration-emoji">🦕🌄</span>}
+          {theme === 'princess' && <span className="illustration-emoji">👸🏰</span>}
+          {theme === 'space' && <span className="illustration-emoji">🚀🌟</span>}
+          {theme === 'animals' && <span className="illustration-emoji">🐰🌳</span>}
+          {theme === 'magical' && <span className="illustration-emoji">🦄🌈</span>}
+          {theme === 'adventure' && <span className="illustration-emoji">🗺️⛰️</span>}
+          {theme === 'friendship' && <span className="illustration-emoji">👫❤️</span>}
+          {theme === 'general' && <span className="illustration-emoji">📚✨</span>}
+        </div>
+      </div>
+    );
   };
 
   return (
