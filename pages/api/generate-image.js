@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { identifySeries, createSeriesAwarePrompt } from '../../utils/seriesKnowledge.js';
 
 // יצירת חיבור ל-OpenAI
 const openai = new OpenAI({
@@ -13,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { title, style, interests, series, age, scenes, seriesInfo } = req.body;
+    const { title, style, interests, series, age, scenes, visualStyle } = req.body;
 
     // בדיקת שדות חובה
     if (!title || !style) {
@@ -21,11 +20,8 @@ export default async function handler(req, res) {
     }
 
     console.log('Generating images for story:', title);
+    console.log('Series:', series || 'Original story');
     console.log('Number of scenes:', scenes ? scenes.length : 1);
-    console.log('Series detected:', seriesInfo ? seriesInfo.name : 'None');
-
-    // זיהוי סדרה אם לא הועברה כבר
-    const identifiedSeries = seriesInfo || (series ? identifySeries(series) : null);
 
     const images = [];
     const maxImages = Math.min(scenes ? scenes.length : 1, 4); // מקסימום 4 תמונות
@@ -35,18 +31,20 @@ export default async function handler(req, res) {
       const scene = scenes && scenes[i] ? scenes[i] : { content: title, summary: title };
       
       try {
-        const imagePrompt = createSceneImagePrompt(
+        // יצירת פרומפט מתקדם שמשתמש בידע של GPT על הסדרות
+        const imagePrompt = await createAdvancedImagePrompt(
           scene,
           title,
           style,
           interests,
-          identifiedSeries,
+          series,
           age,
           i + 1,
-          maxImages
+          maxImages,
+          visualStyle
         );
 
-        console.log(`Generating image ${i + 1}/${maxImages} with prompt:`, imagePrompt.substring(0, 100) + '...');
+        console.log(`Generating image ${i + 1}/${maxImages} with enhanced prompt`);
 
         // יצירת תמונה עם DALL-E
         const imageResponse = await openai.images.generate({
@@ -68,7 +66,7 @@ export default async function handler(req, res) {
           prompt: imagePrompt
         });
 
-        // הפסקה קצרה בין יצירת תמונות כדי לא להעמיס על ה-API
+        // הפסקה קצרה בין יצירת תמונות
         if (i < maxImages - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -102,7 +100,7 @@ export default async function handler(req, res) {
       images: images,
       totalImages: images.length,
       successfulImages: successfulImages.length,
-      seriesDetected: identifiedSeries ? identifiedSeries.name : null
+      seriesDetected: series || null
     });
 
   } catch (error) {
@@ -146,40 +144,45 @@ export default async function handler(req, res) {
   }
 }
 
-// פונקציה ליצירת פרומפט מותאם לסצנה ספציפית
-function createSceneImagePrompt(scene, title, style, interests, identifiedSeries, age, sceneNumber, totalScenes) {
-  let basePrompt = `A beautiful, child-friendly illustration for scene ${sceneNumber} of ${totalScenes} from a Hebrew children's story`;
+// פונקציה ליצירת פרומפט מתקדם שמשתמש בידע של GPT על הסדרות
+async function createAdvancedImagePrompt(scene, title, style, interests, series, age, sceneNumber, totalScenes, visualStyle) {
   
-  // אם זוהתה סדרה - שימוש בסגנון הסדרה
-  if (identifiedSeries) {
-    const seriesPrompts = createSeriesAwarePrompt(identifiedSeries, {});
-    basePrompt = `Scene ${sceneNumber} of ${totalScenes} ${seriesPrompts.visualPrompt}`;
-    
-    // הוספת הדמויות הספציפיות של הסדרה
-    const mainCharacters = identifiedSeries.characters.main.map(char => 
-      `${char.name} (${char.appearance})`
-    ).join(', ');
-    
-    basePrompt += `, featuring ${mainCharacters}`;
-    
-    // הוספת הגדרות ויזואליות של הסדרה
-    basePrompt += `, ${identifiedSeries.visualStyle.artStyle}`;
-    basePrompt += `, ${identifiedSeries.visualStyle.colors}`;
-    basePrompt += `, setting: ${identifiedSeries.visualStyle.setting}`;
-    basePrompt += `, mood: ${identifiedSeries.visualStyle.mood}`;
-    
-  } else {
-    // פרומפט כללי לסיפור מקורי
-    if (title) {
-      basePrompt += ` titled "${title}"`;
-    }
+  if (series && series.trim()) {
+    // פרומפט מתקדם לסדרה מוכרת - נותן ל-DALL-E להשתמש בידע על הסדרה
+    return `Create a scene ${sceneNumber} of ${totalScenes} illustration in the EXACT visual style of "${series}" children's book series.
 
+CRITICAL REQUIREMENTS for series accuracy:
+- Use the original character designs from "${series}" - exact appearance, colors, proportions
+- Match the original illustration style of "${series}" books perfectly
+- Use the authentic color palette from the "${series}" series
+- Include only the canonical characters from "${series}" as they appear in the original books
+- Maintain the original artistic style, line work, and composition of "${series}"
+- The setting and environment must match the world of "${series}"
+
+Scene content: ${scene.summary || scene.content.substring(0, 200)}
+
+Visual requirements:
+- Must look like an official illustration from the "${series}" book series
+- Character accuracy is absolutely critical
+- Original series' art style must be maintained exactly
+- Age appropriate for ${age} year olds
+- Scene ${sceneNumber} of a story progression
+- High quality, suitable for children's book printing
+
+Style notes: ${visualStyle || 'Follow the original series style'}
+
+This must be indistinguishable from an authentic "${series}" illustration.`;
+
+  } else {
+    // פרומפט לסיפור מקורי
+    let basePrompt = `A beautiful, child-friendly illustration for scene ${sceneNumber} of ${totalScenes} from a Hebrew children's story titled "${title}"`;
+    
     // הוספת סגנון
     const styleDescriptions = {
-      'funny': 'whimsical, colorful, cartoon-style, humorous, playful',
-      'adventure': 'exciting, dynamic, adventurous landscape, action-packed',
+      'funny': 'whimsical, colorful, cartoon-style, humorous, playful characters',
+      'adventure': 'exciting, dynamic, adventurous landscape, action-packed scenes',
       'educational': 'clear, informative, bright colors, learning-focused, engaging',
-      'magical': 'magical, fantasy, sparkles, dreamy, enchanted, mystical',
+      'magical': 'magical, fantasy, sparkles, dreamy, enchanted, mystical atmosphere',
       'friendship': 'warm, friendly, characters together, heart-warming, loving',
       'mystery': 'intriguing, gentle mystery, child-appropriate suspense, curious'
     };
@@ -212,46 +215,41 @@ function createSceneImagePrompt(scene, title, style, interests, identifiedSeries
         }
       }
     }
+
+    // הוספת פרטי הסצנה הספציפית
+    if (scene.summary) {
+      basePrompt += `, depicting: ${scene.summary}`;
+    }
+
+    // התאמה לגיל
+    const agePrompts = {
+      '2-4': 'very simple, large clear shapes, bright primary colors, minimal details',
+      '5-7': 'detailed but not complex, vibrant colors, engaging characters, clear focus',
+      '8-10': 'detailed illustration, rich colors, adventure elements, more sophisticated',
+      '11-13': 'sophisticated illustration, detailed background, complex story elements'
+    };
+
+    if (agePrompts[age]) {
+      basePrompt += `, ${agePrompts[age]}`;
+    }
+
+    // הוספת מאפיינים לסצנה
+    if (sceneNumber === 1) {
+      basePrompt += ', opening scene, introducing characters and setting';
+    } else if (sceneNumber === totalScenes) {
+      basePrompt += ', final scene, happy ending, resolution';
+    } else {
+      basePrompt += ', middle scene, story development, character interaction';
+    }
+
+    // הוספת סגנון ויזואלי אם סופק
+    if (visualStyle) {
+      basePrompt += `, ${visualStyle}`;
+    }
+
+    // הוספת דרישות כלליות
+    basePrompt += `, safe for children, no scary elements, warm and inviting, digital art style, high quality, perfect for children's book illustration`;
+
+    return basePrompt;
   }
-
-  // הוספת פרטי הסצנה הספציפית
-  if (scene.summary) {
-    basePrompt += `, depicting: ${scene.summary}`;
-  }
-
-  // התאמה לגיל
-  const agePrompts = {
-    '2-4': 'very simple, large clear shapes, bright primary colors, minimal details',
-    '5-7': 'detailed but not complex, vibrant colors, engaging characters, clear focus',
-    '8-10': 'detailed illustration, rich colors, adventure elements, more sophisticated',
-    '11-13': 'sophisticated illustration, detailed background, complex story elements'
-  };
-
-  if (agePrompts[age]) {
-    basePrompt += `, ${agePrompts[age]}`;
-  }
-
-  // הוספת מאפיינים לסצנה בסדרה
-  if (sceneNumber === 1) {
-    basePrompt += ', opening scene, introducing characters and setting';
-  } else if (sceneNumber === totalScenes) {
-    basePrompt += ', final scene, happy ending, resolution';
-  } else {
-    basePrompt += ', middle scene, story development, character interaction';
-  }
-
-  // הוספת דרישות כלליות
-  basePrompt += `, safe for children, no scary elements, warm and inviting, digital art style, high quality, perfect for children's book illustration`;
-
-  // אם זה סיפור בסדרה - הוסף דרישה לדיוק
-  if (identifiedSeries) {
-    basePrompt += `, must be exactly in the style of original ${identifiedSeries.englishName} illustrations, character accuracy is crucial`;
-  }
-
-  // הגבלת אורך (DALL-E 3 has limit)
-  if (basePrompt.length > 1000) {
-    basePrompt = basePrompt.substring(0, 997) + '...';
-  }
-
-  return basePrompt;
 }
