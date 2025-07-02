@@ -1,7 +1,7 @@
 {
   "name": "hebrew-stories-app",
-  "version": "3.0.0",
-  "description": "מחולל סיפורי ילדים בעברית - הסטנדרט הזהב עם שימוש מלא בידע GPT ותמונות מדויקות",
+  "version": "3.1.0",
+  "description": "מחולל סיפורי ילדים בעברית - הסטנדרט הזהב עם שמירה מוחלטת על דמויות מקוריות",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
