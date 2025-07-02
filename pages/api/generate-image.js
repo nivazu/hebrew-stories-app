@@ -31,8 +31,8 @@ export default async function handler(req, res) {
       const scene = scenes && scenes[i] ? scenes[i] : { content: title, summary: title };
       
       try {
-        // יצירת פרומפט מתקדם שמשתמש בידע של GPT על הסדרות
-        const imagePrompt = await createAdvancedImagePrompt(
+        // יצירת פרומפט מתקדם
+        const imagePrompt = createImagePrompt(
           scene,
           title,
           style,
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
           visualStyle
         );
 
-        console.log(`Generating image ${i + 1}/${maxImages} with enhanced prompt`);
+        console.log(`Generating image ${i + 1}/${maxImages}`);
 
         // יצירת תמונה עם DALL-E
         const imageResponse = await openai.images.generate({
@@ -144,34 +144,36 @@ export default async function handler(req, res) {
   }
 }
 
-// פונקציה ליצירת פרומפט מתקדם שמשתמש בידע של GPT על הסדרות
-async function createAdvancedImagePrompt(scene, title, style, interests, series, age, sceneNumber, totalScenes, visualStyle) {
+// פונקציה ליצירת פרומפט מתקדם
+function createImagePrompt(scene, title, style, interests, series, age, sceneNumber, totalScenes, visualStyle) {
   
   if (series && series.trim()) {
-    // פרומפט מתקדם לסדרה מוכרת - נותן ל-DALL-E להשתמש בידע על הסדרה
-    return `Create a scene ${sceneNumber} of ${totalScenes} illustration in the EXACT visual style of "${series}" children's book series.
+    // פרומפט מתקדם לסדרה מוכרת
+    return `Create scene ${sceneNumber} of ${totalScenes} illustration in the EXACT visual style of "${series}" children's book series.
 
-CRITICAL REQUIREMENTS for series accuracy:
-- Use the original character designs from "${series}" - exact appearance, colors, proportions
-- Match the original illustration style of "${series}" books perfectly
+CRITICAL REQUIREMENTS for absolute series accuracy:
+- Use ONLY the original characters from "${series}" exactly as they appear in the official books
+- Characters must maintain their original species/type (if Pip is a rabbit, he stays a rabbit - NOT a human child)
+- Use the exact character designs, colors, and proportions from the "${series}" series
+- Match the original illustration style of "${series}" perfectly - art style, line work, composition
 - Use the authentic color palette from the "${series}" series
-- Include only the canonical characters from "${series}" as they appear in the original books
-- Maintain the original artistic style, line work, and composition of "${series}"
 - The setting and environment must match the world of "${series}"
+- Maintain the original artistic mood and atmosphere of "${series}"
 
 Scene content: ${scene.summary || scene.content.substring(0, 200)}
 
 Visual requirements:
 - Must look like an official illustration from the "${series}" book series
-- Character accuracy is absolutely critical
-- Original series' art style must be maintained exactly
+- Character accuracy is absolutely critical - NEVER change the species or type of characters
 - Age appropriate for ${age} year olds
-- Scene ${sceneNumber} of a story progression
+- Scene ${sceneNumber} of story progression
 - High quality, suitable for children's book printing
 
-Style notes: ${visualStyle || 'Follow the original series style'}
+Style notes: ${visualStyle || 'Follow the original series style exactly'}
 
-This must be indistinguishable from an authentic "${series}" illustration.`;
+IMPORTANT: If "${series}" features animal characters, they must remain as animals, not human children.
+
+This illustration must be indistinguishable from an authentic "${series}" book illustration.`;
 
   } else {
     // פרומפט לסיפור מקורי
@@ -179,12 +181,12 @@ This must be indistinguishable from an authentic "${series}" illustration.`;
     
     // הוספת סגנון
     const styleDescriptions = {
-      'funny': 'whimsical, colorful, cartoon-style, humorous, playful characters',
-      'adventure': 'exciting, dynamic, adventurous landscape, action-packed scenes',
-      'educational': 'clear, informative, bright colors, learning-focused, engaging',
-      'magical': 'magical, fantasy, sparkles, dreamy, enchanted, mystical atmosphere',
-      'friendship': 'warm, friendly, characters together, heart-warming, loving',
-      'mystery': 'intriguing, gentle mystery, child-appropriate suspense, curious'
+      'funny': 'whimsical, colorful, cartoon-style, humorous, playful characters with expressive faces',
+      'adventure': 'exciting, dynamic, adventurous landscape, action-packed scenes with movement',
+      'educational': 'clear, informative, bright colors, learning-focused, engaging and educational',
+      'magical': 'magical, fantasy, sparkles, dreamy, enchanted, mystical atmosphere with wonder',
+      'friendship': 'warm, friendly, characters together, heart-warming, loving and caring',
+      'mystery': 'intriguing, gentle mystery, child-appropriate suspense, curious and investigative'
     };
     
     if (styleDescriptions[style]) {
@@ -194,18 +196,18 @@ This must be indistinguishable from an authentic "${series}" illustration.`;
     // הוספת תחומי עניין
     if (interests) {
       const interestPrompts = {
-        'דינוזאור': 'with friendly dinosaurs in prehistoric landscape',
-        'dinosaur': 'with friendly dinosaurs in prehistoric landscape',
-        'נסיכ': 'with princesses, castles, and fairy tale elements',
-        'princess': 'with princesses, castles, and fairy tale elements',
-        'חלל': 'with space, rockets, planets, and cosmic elements',
-        'space': 'with space, rockets, planets, and cosmic elements',
-        'בעלי חיים': 'with cute animals in natural habitat',
-        'animal': 'with cute animals in natural habitat',
-        'מדע': 'with science elements, experiments, and discovery',
-        'science': 'with science elements, experiments, and discovery',
-        'ספורט': 'with sports activities and athletic scenes',
-        'sport': 'with sports activities and athletic scenes'
+        'דינוזאור': 'with friendly, colorful dinosaurs in a lush prehistoric landscape',
+        'dinosaur': 'with friendly, colorful dinosaurs in a lush prehistoric landscape',
+        'נסיכ': 'with beautiful princesses, magical castles, and fairy tale elements',
+        'princess': 'with beautiful princesses, magical castles, and fairy tale elements',
+        'חלל': 'with rockets, planets, stars, and exciting cosmic elements',
+        'space': 'with rockets, planets, stars, and exciting cosmic elements',
+        'בעלי חיים': 'with cute, friendly animals in their natural colorful habitat',
+        'animal': 'with cute, friendly animals in their natural colorful habitat',
+        'מדע': 'with fun science elements, experiments, and discovery themes',
+        'science': 'with fun science elements, experiments, and discovery themes',
+        'ספורט': 'with dynamic sports activities and athletic scenes',
+        'sport': 'with dynamic sports activities and athletic scenes'
       };
 
       for (const [key, value] of Object.entries(interestPrompts)) {
@@ -223,10 +225,10 @@ This must be indistinguishable from an authentic "${series}" illustration.`;
 
     // התאמה לגיל
     const agePrompts = {
-      '2-4': 'very simple, large clear shapes, bright primary colors, minimal details',
-      '5-7': 'detailed but not complex, vibrant colors, engaging characters, clear focus',
-      '8-10': 'detailed illustration, rich colors, adventure elements, more sophisticated',
-      '11-13': 'sophisticated illustration, detailed background, complex story elements'
+      '2-4': 'very simple, large clear shapes, bright primary colors, minimal details, big friendly characters',
+      '5-7': 'detailed but not complex, vibrant colors, engaging characters, clear focus, fun elements',
+      '8-10': 'detailed illustration, rich colors, adventure elements, more sophisticated composition',
+      '11-13': 'sophisticated illustration, detailed background, complex story elements, mature art style'
     };
 
     if (agePrompts[age]) {
@@ -235,11 +237,11 @@ This must be indistinguishable from an authentic "${series}" illustration.`;
 
     // הוספת מאפיינים לסצנה
     if (sceneNumber === 1) {
-      basePrompt += ', opening scene, introducing characters and setting';
+      basePrompt += ', opening scene, introducing characters and setting, welcoming atmosphere';
     } else if (sceneNumber === totalScenes) {
-      basePrompt += ', final scene, happy ending, resolution';
+      basePrompt += ', final scene, happy ending, resolution, celebratory mood';
     } else {
-      basePrompt += ', middle scene, story development, character interaction';
+      basePrompt += ', middle scene, story development, character interaction, engaging action';
     }
 
     // הוספת סגנון ויזואלי אם סופק
@@ -248,7 +250,7 @@ This must be indistinguishable from an authentic "${series}" illustration.`;
     }
 
     // הוספת דרישות כלליות
-    basePrompt += `, safe for children, no scary elements, warm and inviting, digital art style, high quality, perfect for children's book illustration`;
+    basePrompt += `, safe for children, no scary elements, warm and inviting atmosphere, digital art style, high quality, perfect for children's book illustration, bright and colorful`;
 
     return basePrompt;
   }
