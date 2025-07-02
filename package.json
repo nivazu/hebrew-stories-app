@@ -1,7 +1,7 @@
 {
   "name": "hebrew-stories-app",
-  "version": "2.0.0",
-  "description": "מחולל סיפורי ילדים בעברית - הסטנדרט הזהב עם זיהוי סדרות ותמונות מרובות",
+  "version": "3.0.0",
+  "description": "מחולל סיפורי ילדים בעברית - הסטנדרט הזהב עם שימוש מלא בידע GPT ותמונות מדויקות",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
@@ -28,8 +28,9 @@
     "ai",
     "nextjs",
     "bedtime-stories",
-    "series-recognition",
-    "multiple-images"
+    "gpt-knowledge",
+    "accurate-images",
+    "series-recognition"
   ],
   "author": "Hebrew Stories Generator",
   "license": "MIT"
