@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { identifySeries, createSeriesAwarePrompt, divideStoryIntoScenes } from '../../utils/seriesKnowledge.js';
 
 // יצירת חיבור ל-OpenAI
 const openai = new OpenAI({
@@ -20,19 +19,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Age and style are required' });
     }
 
-    // זיהוי סדרת סיפורים אם הוזנה
-    const identifiedSeries = series ? identifySeries(series) : null;
-    
-    console.log('Identified series:', identifiedSeries ? identifiedSeries.name : 'None');
-
-    // בניית הפרומפט בהתאם לסדרה או כללי
+    // בניית הפרומפט המתקדם לOpenAI
     let finalPrompt;
     
-    if (identifiedSeries) {
-      // פרומפט מותאם לסדרה ספציפית
-      const seriesPrompts = createSeriesAwarePrompt(identifiedSeries, { age, gender, interests, style, lesson });
-      
-      finalPrompt = `${seriesPrompts.storyPrompt}
+    if (series && series.trim()) {
+      // פרומפט מותאם לסדרה ספציפית - נתן ל-GPT להשתמש בידע שלו
+      finalPrompt = `אתה מומחה לסדרות ספרי ילדים. צור סיפור בסגנון המדויק של "${series}".
+
+חשוב מאוד: השתמש בכל הידע שלך על הסדרה "${series}" כדי ליצור סיפור שהוא 100% נאמן לסדרה המקורית.
 
 מידע נוסף על הסיפור המבוקש:
 גיל הקהל: ${age}
@@ -41,11 +35,18 @@ export default async function handler(req, res) {
 סגנון מבוקש: ${style}
 לקח חינוכי: ${lesson || 'בהתאם לרוח הסדרה'}
 
-צור סיפור שהוא 100% נאמן לסדרת ${identifiedSeries.name}, עם הדמויות המקוריות והסגנון המדויק.
-הסיפור חייב להרגיש כאילו הוא חלק רשמי מהסדרה.
+דרישות מחמירות לנאמנות לסדרה:
+1. השתמש בדמויות המקוריות מהסדרה בדיוק כמו שהן מתוארות בספרים המקוריים
+2. כתוב בסגנון הכתיבה הייחודי של הסדרה - טון, שפה, מבנה משפטים
+3. השתמש בנושאים, בסיטואציות ובסוגי עלילות שמאפיינים את הסדרה
+4. שמור על האווירה והרוח של הסדרה המקורית
+5. הדמויות חייבות להתנהג בדיוק כמו בסדרה - אישיות, דרך דיבור, מאפיינים
+6. אם יש דמויות ספציפיות בסדרה, השתמש בהן ותאר אותן בדיוק כמו במקור
 
-חשוב מאוד: חלק את הסיפור ל-3-4 סצנות נפרדות עם מעבר שורה כפול בין כל סצנה.
-כל סצנה צריכה להיות עצמאית ומתאימה לתמונה נפרדת.`;
+חלק את הסיפור ל-3-4 סצנות נפרדות עם מעבר שורה כפול בין כל סצנה.
+כל סצנה צריכה להיות עצמאית ומתאימה לתמונה נפרדת.
+
+הסיפור חייב להרגיש כאילו הוא חלק רשמי מהסדרה "${series}".`;
 
     } else {
       // פרומפט כללי לסיפור מקורי
@@ -55,11 +56,10 @@ export default async function handler(req, res) {
 מגדר הדמות הראשית: ${gender || 'לא משנה'}
 תחומי עניין וחוביות: ${interests || 'כללי'}
 סגנון הסיפור: ${style}
-סדרת סיפורים מבוקשת: ${series || 'סיפור מקורי וחדש'}
 לקח חינוכי: ${lesson || 'כללי'}
 
 דרישות הסיפור המתקדמות:
-- כתוב בעברית תקנית עם ניקוד חלקי במילים מורכבות לשיפור הקריאות
+- כתוב בעברית תקנית עם ניקוד חלקי במילים מורכבות
 - מתאים בדיוק לגיל שנבחר (${age}) - רמת השפה, האורך והמורכבות
 - אורך של 300-600 מילים (בהתאם לגיל: צעירים יותר = קצר יותר)
 - חלק את הסיפור ל-3-4 סצנות נפרדות עם מעבר שורה כפול בין כל סצנה
@@ -79,8 +79,9 @@ export default async function handler(req, res) {
 {
   "title": "כותרת הסיפור בעברית - יצירתית, מושכת ומתאימה לגיל",
   "story": "תוכן הסיפור המלא בעברית מחולק לסצנות עם מעבר שורה כפול בין סצנות",
-  "seriesDetected": ${identifiedSeries ? `"${identifiedSeries.name}"` : 'null'},
-  "sceneCount": "מספר הסצנות בסיפור (3-4)"
+  "seriesDetected": ${series && series.trim() ? `"${series.trim()}"` : 'null'},
+  "sceneCount": "מספר הסצנות בסיפור (3-4)",
+  "visualStyle": "תיאור קצר של הסגנון הויזואלי שמתאים לסיפור זה - צבעים, אווירה, סגנון איור"
 }
 
 תוודא שהסיפור מרתק, מעניין, מתאים בדיוק לגיל שנבחר, ומעביר את הלקח החינוכי באופן טבעי, מהנה וזוכר.`;
@@ -92,11 +93,12 @@ export default async function handler(req, res) {
         {
           role: "system",
           content: `אתה כותב סיפורי ילדים מקצועי ומומחה ביצירה בעברית.
-          ${identifiedSeries ? 
-            `אתה מכיר לעומק את סדרת ${identifiedSeries.name} ויודע לכתוב בסגנון המדויק שלה.
-            אתה חייב לשמור על נאמנות מוחלטת לדמויות, לסגנון ולרוח של הסדרה המקורית.
-            הדמויות חייבות להתנהג בדיוק כמו בסדרה, השפה חייבת להיות זהה, והסיטואציות מתאימות לעולם של הסדרה.` :
-            `אתה מתמחה ביצירת סיפורים מקוריים מעניינים, חינוכיים ומתאימים לגיל עם שפה עשירה, ערכים חיוביים וסיומים מרגשים.`}
+          ${series && series.trim() ? 
+            `אתה מכיר לעומק את כל סדרות ספרי הילדים בעולם, כולל "${series}".
+            אתה חייב לשמור על נאמנות מוחלטת לסדרות המקוריות - דמויות, סגנון, רוח, אווירה, ותחושה.
+            כשמבקשים ממך לכתוב בסגנון סדרה מסוימת, אתה משתמש בכל הידע שלך על הסדרה הזו ליצור סיפור אותנטי לחלוטין.
+            הדמויות חייבות להתנהג, לדבר ולהראות בדיוק כמו בסדרה המקורית.` :
+            `אתה מתמחה ביצירת סיפורים מקוריים מעניינים, חינוכיים ומתאימים לגיל.`}
           אתה יודע ליצור דמויות מרתקות, עלילות מושכות וכיף לקרוא.
           אתה תמיד מוודא שהסיפור מתאים בדיוק לגיל המבוקש ומכיל את המסר החינוכי באופן טבעי.
           אתה חובר את הסיפור לסצנות נפרדות המתאימות ליצירת תמונות.`
@@ -141,10 +143,10 @@ export default async function handler(req, res) {
     return res.status(200).json({
       title: storyData.title.trim(),
       story: storyData.story.trim(),
-      seriesDetected: identifiedSeries ? identifiedSeries.name : null,
-      seriesInfo: identifiedSeries || null,
+      seriesDetected: storyData.seriesDetected || null,
       scenes: scenes,
-      sceneCount: scenes.length
+      sceneCount: scenes.length,
+      visualStyle: storyData.visualStyle || null
     });
 
   } catch (error) {
@@ -186,4 +188,28 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString()
     });
   }
+}
+
+// פונקציה לחלוקת סיפור לסצנות
+function divideStoryIntoScenes(story, targetScenes = 3) {
+  const sections = story.split('\n\n').filter(section => section.trim().length > 0);
+  const scenes = [];
+  const sectionsPerScene = Math.ceil(sections.length / targetScenes);
+  
+  for (let i = 0; i < targetScenes; i++) {
+    const startIndex = i * sectionsPerScene;
+    const endIndex = Math.min((i + 1) * sectionsPerScene, sections.length);
+    const sceneContent = sections.slice(startIndex, endIndex);
+    
+    if (sceneContent.length > 0) {
+      const content = sceneContent.join('\n\n');
+      scenes.push({
+        sceneNumber: i + 1,
+        content: content,
+        summary: content.split('.')[0] + '.' // המשפט הראשון
+      });
+    }
+  }
+  
+  return scenes;
 }
